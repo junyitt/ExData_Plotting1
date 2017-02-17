@@ -1,27 +1,54 @@
 library(lubridate)
+library(dplyr)
 
-data1 <- read.table("household_power_consumption.txt", header = TRUE, sep = ";")
-        data1$Date <- dmy(data1$Date)
-        rdate <- dmy(c("01/02/2007","02/02/2007"))
-                data2 <- data1[data1$Date %in% rdate,]
+#download the data
+link <- "https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2Fhousehold_power_consumption.zip"
+temp <- tempfile()
+download.file(link,temp)
 
-d <- data2
-for(i in 3:9){
-        d[,i] <- as.numeric(as.character(d[,i]))
-}
-d$fday <- as.POSIXct(paste(d$Date, d$Time), format="%F %H:%M:%S")
+#read the data
+data <- read.table( unz(filename="household_power_consumption.txt",temp) , sep = ";", stringsAsFactors = F)
 
+df <- data
+#renaming the dataframe column name
+names(df) <- c("date", "time", "global.active.power", "global.reactive.power", "voltage",
+               "global.intensity", "sub.metering.1", "sub.metering.2", "sub.metering.3")
 
-png(file="plot4.png",width=480,height=480)
-        par(mfcol=c(2,2))
-        plot(y = d$Global_active_power, x= d$fday, type = "l", xlab = "", ylab = "Global Active Power (kilowatts)")
-        
-        plot(y = d$Sub_metering_1, x= d$fday, type = "l", xlab = "", ylab = "Energy sub metering")
-        lines(y = d$Sub_metering_2, x= d$fday, type = "l", xlab = "", ylab = "Energy sub metering", col = "Red")
-        lines(y = d$Sub_metering_3, x= d$fday, type = "l", xlab = "", ylab = "Energy sub metering", col = "Blue")
-        legend("topright", c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"), col = c("Black", "Red","Blue"), lty = c(1,1,1), cex = 0.75)
-        
-        plot(y = d$Voltage, x= d$fday, type = "l", xlab = "datetime", ylab = "Voltage")
-        
-        plot(y = d$Global_reactive_power, x= d$fday, type = "l", xlab = "datetime", ylab = "Global_reactive_power")
+#Reformat date
+df <- df %>% mutate(datetime = paste(date, time))
+df <- df %>% mutate(date2 = dmy(date))
+
+#Subset the 2 date in february 2007
+df <- filter(df, date2 %in% ymd(c("2007-02-01", "2007-02-02")))
+
+#convert variables to numeric
+df <- df %>% mutate(global.active.power = as.numeric(global.active.power), global.reactive.power = as.numeric(global.reactive.power), 
+                    voltage = as.numeric(voltage), sub.metering.1 = as.numeric(sub.metering.1), 
+                    sub.metering.2 = as.numeric(sub.metering.2), sub.metering.3 = as.numeric(sub.metering.3))
+
+#convert time variable to POSIXct
+df[, "datetime2"] <- as.POSIXct(strptime(df[,"datetime"], format="%d/%m/%Y %H:%M:%S"))
+
+#Plot4
+png(filename = "plot4.png", width=480, height=480)
+par(mfrow=c(2,2))
+#1
+with(df, plot(x = datetime2, y = global.active.power, type = "n", xlab = " ",ylab = "Global Active Power"))
+with(df, lines(x = datetime2, y = global.active.power))
+
+#2
+with(df, plot(x = datetime2, y = voltage, type = "n", xlab = "datetime",ylab = "Voltage"))
+with(df, lines(x = datetime2, y = voltage))
+
+#3
+with(df, plot(x = datetime2, y = sub.metering.1, type = "n", xlab = " ",ylab = "Energy sub metering"))
+with(df, lines(x = datetime2, y = sub.metering.1))
+with(df, lines(x = datetime2, y = sub.metering.2, col = "red"))
+with(df, lines(x = datetime2, y = sub.metering.3, col = "blue"))
+legend("topright", legend = c("Sub_metering_1", "Sub_metering_2", "Sub_metering_3"), col = c("black", "red", "blue"), lty = 1, cex=0.75, bty = "n")
+
+#4
+with(df, plot(x = datetime2, y = global.reactive.power, type = "n", xlab = "datetime",ylab = "Global Reactive Power"))
+with(df, lines(x = datetime2, y = global.reactive.power))
+
 dev.off()
